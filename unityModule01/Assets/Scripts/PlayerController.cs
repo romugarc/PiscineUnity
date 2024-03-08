@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PlayerController : MonoBehaviour
 {
@@ -8,107 +9,121 @@ public class PlayerController : MonoBehaviour
     private GameObject thomasObj;
     private GameObject johnObj;
     private GameObject claireObj;
-    private Rigidbody thomasBody;
-    private Rigidbody johnBody;
-    private Rigidbody claireBody;
-    public float speed = 5f;
+    private GameObject currentObj;
+    private Camera currCamera;
+    private Rigidbody currentBody;
+    public float speed;
+    public float jumpspeed;
     public float ySpeed = 0f;
 
     public bool thomasActive = false;
     public bool johnActive = false;
     public bool claireActive = false;
+    public bool isGrounded = true;
 
     // Start is called before the first frame update
     void Start()
     {
+        currCamera = GameObject.Find("Main Camera").GetComponent<Camera>();
         thomasObj = GameObject.Find("Thomas");
-        thomasBody = thomasObj.GetComponent<Rigidbody>();
         johnObj = GameObject.Find("John");
-        johnBody = johnObj.GetComponent<Rigidbody>();
         claireObj = GameObject.Find("Claire");
-        claireBody = claireObj.GetComponent<Rigidbody>();
-        // johnController.Disable;
-        // claireController.Disable;
+        thomasActive = false;
+        johnActive = false;
+        claireActive = false;
+        isGrounded = true;
+        speed = 0f;
+        jumpspeed = 0f;
     }
 
     // Update is called once per frame
-    void FixedUpdate()
+    void Update()
     {
-
         if (Input.GetKeyDown(KeyCode.Alpha1))
         {
             thomasActive = true;
-            johnActive = true;
-            claireActive = true;
+            johnActive = false;
+            claireActive = false;
+            currentBody = thomasObj.GetComponent<Rigidbody>();
+            currentObj = thomasObj;
+            speed = 20f;
+            jumpspeed = 5f;
         }
-        else if (Input.GetKeyDown(KeyCode.Alpha2))
+        if (Input.GetKeyDown(KeyCode.Alpha2))
         {
             thomasActive = false;
             johnActive = true;
             claireActive = false;
+            currentBody = johnObj.GetComponent<Rigidbody>();
+            currentObj = johnObj;
+            speed = 25f;
+            jumpspeed = 7f;
         }
-        else if (Input.GetKeyDown(KeyCode.Alpha3))
+        if (Input.GetKeyDown(KeyCode.Alpha3))
         {
             thomasActive = false;
             johnActive = false;
             claireActive = true;
+            currentBody = claireObj.GetComponent<Rigidbody>();
+            currentObj = claireObj;
+            speed = 15f;
+            jumpspeed = 3f;
         }
 
-        if (thomasActive == true || johnActive == true || claireActive == true)
-            move = new Vector3(Input.GetAxis("Horizontal"), 0, 0);
-        if (thomasActive == true)
+        if (Input.GetKeyDown(KeyCode.R))
         {
-            Vector3 thomasVector = thomasObj.transform.TransformDirection(move) * speed;
-            thomasBody.velocity = new Vector3(move.x, thomasBody.velocity.y, move.z);
-
-            if (Input.GetKeyDown(KeyCode.Space) && thomasBody.velocity.y == 0)
-            {
-                thomasBody.AddForce(Vector3.up, ForceMode.Impulse);
-            }
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
-        else if (johnActive == true)
-        {
-            Vector3 johnVector = johnObj.transform.TransformDirection(move) * speed;
-            johnBody.velocity = new Vector3(move.x * 1.5f, johnBody.velocity.y, move.z);
-
-            if (Input.GetKeyDown(KeyCode.Space) && johnBody.velocity.y == 0)
-            {
-                johnBody.AddForce(Vector3.up * 1.5f, ForceMode.Impulse);
-            }
-        }
-        else if (claireActive == true)
-        {
-            Vector3 claireVector = claireObj.transform.TransformDirection(move) * speed * 0.5f;
-            claireBody.velocity = new Vector3(move.x * 0.5f, claireBody.velocity.y, move.z);
-
-            if (Input.GetKeyDown(KeyCode.Space) && claireBody.velocity.y == 0)
-            {
-                claireBody.AddForce(Vector3.up * 0.5f, ForceMode.Impulse);
-            }
-        }
-
-        // if (thomasActive == true)
-        // {
-        //     // Vector3 thomasMove = new Vector3(Input.GetAxis("Horizontal"), 0, 0);
         
-        //     // ySpeed += Physics.gravity.y * Time.fixedDeltaTime;
+        if (thomasActive == true || johnActive == true || claireActive == true)
+        {
+            currCamera.transform.position = new Vector3(currentBody.transform.position.x, currentBody.transform.position.y, currCamera.transform.position.z);
+            string currentName = currentBody.name;
+            if (currentName == gameObject.name)
+            {
+                float horizontal = currentBody.velocity.x + Input.GetAxis("Horizontal") * speed * Time.deltaTime;
+                if (horizontal > speed * 0.1f)
+                    horizontal = speed * 0.1f;
+                else if (horizontal < speed * -0.1f)
+                    horizontal = speed * -0.1f;
+                currentBody.velocity = new Vector3(horizontal, currentBody.velocity.y, 0f);
+                if (isGrounded == true)
+                {
+                    if (Input.GetKeyDown(KeyCode.Space))
+                    {
+                        currentBody.velocity += new Vector3(0f, jumpspeed, 0f);
+                        isGrounded = false;
+                    }
+                }
+            }
+        }
+    }
 
-        //     // if (ySpeed < -10f)
-        //     // {
-        //     //     ySpeed = -10f;
-        //     // }
-        //     // if (thomasController.isGrounded)
-        //     // {
-        //     //     ySpeed = -0.5f;
-        //     //     if (Input.GetButtonDown("Jump"))
-        //     //     {
-        //     //         ySpeed = jumpSpeed;
-        //     //     }
-        //     // }
-
-        //     // thomasMove.y = ySpeed;
-
-        //     // thomasController.Move(thomasMove * Time.fixedDeltaTime * speed);
-        // }
+    void OnCollisionStay(Collision collider)
+    {
+        //Debug.Log("Stay");
+        if (thomasActive == true || johnActive == true || claireActive == true)
+        {
+            ContactPoint[] contacts =  collider.contacts;
+            string currName = currentObj.name;
+            if (currName == gameObject.name)
+            {
+                foreach(ContactPoint contact in contacts)
+                {
+                    Vector3 normals = contact.normal.normalized;
+                    Debug.DrawRay(contact.point, contact.normal * 1000, Color.red);
+                    if (normals == Vector3.up)
+                        isGrounded = true;
+                }
+            }
+        }
+    }
+    void OnCollisionExit()
+    {
+        if (currentObj.name == gameObject.name)
+        {
+            isGrounded = false;
+        }
     }
 }
+
